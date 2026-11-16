@@ -1,0 +1,37 @@
+name: Recordatorios y avisos
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+concurrency:
+  group: recordatorios
+  cancel-in-progress: false
+permissions:
+  contents: write
+jobs:
+  enviar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Instalar
+        run: npm install --omit=dev --no-audit --no-fund
+        working-directory: notificar
+      - name: Enviar avisos
+        run: node enviar.js
+        working-directory: notificar
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          OWNER_EMAIL: tatuador@ejemplo.com
+          APP_URL: https://PEGA_AQUI_ID_DEL_PROYECTO.web.app
+      - name: Mantener activo (GitHub pausa los programados tras 60 días sin actividad)
+        if: always()
+        run: |
+          last=$(git log -1 --format=%ct); now=$(date +%s)
+          if [ $((now-last)) -gt 3888000 ]; then
+            git config user.name "bot"; git config user.email "bot@users.noreply.github.com"
+            git commit --allow-empty -m "keepalive"; git push
+          fi
